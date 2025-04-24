@@ -239,21 +239,20 @@ def start_scanner():
 HOME_TEMPLATE = """
 <!DOCTYPE html>
 <html>
-<link rel="manifest" href="/manifest.json">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js')
-        .then(reg => console.log('Service Worker registered', reg))
-        .catch(err => console.log('Service Worker registration failed', err));
-    });
-  }
-</script>
-
 <head>
   <meta charset="utf-8">
   <title>Polymarket Live</title>
   <meta http-equiv="refresh" content="{{ refresh_interval }}">
+  <link rel="manifest" href="/manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(reg => console.log('Service Worker registered', reg))
+          .catch(err => console.log('Service Worker registration failed', err));
+      });
+    }
+  </script>
   <style>
     body{background:#222;color:#ddd;font-family:sans-serif;padding:20px}
     a.btn,button.btn{display:inline-block;margin-right:10px;padding:6px 12px;
