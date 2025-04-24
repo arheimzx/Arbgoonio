@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="6b1ebf16-bcef-4458-a4c4-df3cc2a848c6" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Arbgoonio.py" beforeDir="false" afterPath="$PROJECT_DIR$/Arbgoonio.py" afterDir="false" />
-    </list>
+    <list default="true" id="6b1ebf16-bcef-4458-a4c4-df3cc2a848c6" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -61,7 +58,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1745475443699</updated>
-      <workItem from="1745475445040" duration="38959000" />
+      <workItem from="1745475445040" duration="39713000" />
     </task>
     <servers />
   </component>
