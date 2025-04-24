@@ -4,30 +4,13 @@ import threading
 import json
 import requests
 import logging
+import playsound
 from collections import deque
-from flask import Flask, render_template_string, request, jsonify, send_from_directory
-
-# Ensure slugify is imported in a way that works with Render
-try:
-    from slugify import slugify
-except ImportError:
-    # Fallback implementation if the library isn't available
-    def slugify(text):
-        import re
-        text = text.lower()
-        return re.sub(r'[^a-z0-9]+', '-', text).strip('-')
-
-# Check if playsound is available (won't be used on Render but kept for local dev)
-try:
-    from playsound import playsound
-except ImportError:
-    # Create a dummy implementation if not available
-    def playsound(path):
-        pass
+from flask import Flask, render_template_string, request, jsonify
 
 # ────────────────────────── CONFIGURATION ──────────────────────────
 API_BASE = "https://gamma-api.polymarket.com"
-SCAN_INTERVAL = 10  # seconds between API polls
+SCAN_INTERVAL = 15  # seconds between API polls (increased for Render)
 REFRESH_INTERVAL = 5  # seconds between browser refreshes
 HISTORY_MINUTES = 5  # minutes to keep price movement history
 MAX_MOVES = 500  # maximum number of moves to store
@@ -39,373 +22,232 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ────────────────────────── APP & STATE ────────────────────────────
+# ────────────────────────── APP SETUP ──────────────────────────────
 app = Flask(__name__)
 
-# Use global variables with proper locks for thread safety
+# Global state with lock
+events_data = {}
+recent_moves = deque(maxlen=MAX_MOVES)
 lock = threading.RLock()
-events_data = {}  # Main events data store
-events_meta = {}  # Metadata about events
-last_prices = {}  # Last known prices
-recent_moves = deque(maxlen=MAX_MOVES)  # Recent price movements
+last_update = 0
+last_fetch_status = "Not started"
 
-# For debugging, track when we last updated the data
-last_data_update = 0
-scanner_status = "Not started"
-
-
-# ────────────────────────── API HELPERS ────────────────────────────
-def fetch_all_events(params=None, page_size=50, max_retries=3):
-    params = params or {}
-    out, offset = [], 0
-
-    while True:
-        q = params.copy()
-        q.update(limit=page_size, offset=offset)
-
-        for attempt in range(max_retries):
-            try:
-                r = requests.get(f"{API_BASE}/events", params=q, timeout=30)
-                r.raise_for_status()
-                batch = r.json()
-
-                if not batch:
-                    break
-
-                out.extend(batch)
-
-                if len(batch) < page_size:
-                    break
-
-                offset += page_size
-                break  # Success, exit retry loop
-
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    logger.error(f"API request failed: {e}")
-                    return out
-                logger.warning(f"API request attempt {attempt + 1} failed: {e}")
-                time.sleep(1)  # Wait before retry
-
-        if not batch or len(batch) < page_size:
-            break
-
-    return out
+# ────────────────────────── CSS STYLES ──────────────────────────────
+BASE_STYLE = """
+body { background: #222; color: #ddd; font-family: sans-serif; padding: 20px; }
+a, button { color: #ff69b4; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px; border-bottom: 1px solid #555; text-align: left; }
+.yes { color: #0f0; font-weight: bold; }
+.no { color: #f00; font-weight: bold; }
+.up { color: #0f0; }
+.down { color: #f00; }
+.status { background: #333; padding: 10px; margin-bottom: 15px; }
+"""
 
 
-def make_event_url(ev):
-    tid = ev["id"]
-    slug = ev.get("slug") or slugify(ev["title"])
-    return f"https://polymarket.com/event/{slug}?tid={tid}"
-
-
-def parse_prices(raw):
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError:
-            return None
+# ────────────────────────── FETCH FUNCTION ──────────────────────────
+def fetch_data():
+    """Fetch data from API and update global state"""
+    global events_data, recent_moves, last_update, last_fetch_status
 
     try:
-        return float(raw[0]), float(raw[1])
-    except (IndexError, TypeError, ValueError):
-        return None
+        last_fetch_status = "Starting fetch..."
+        logger.info("Starting API fetch")
 
+        # Make a simple API request with fewer parameters to debug
+        params = {"limit": 100, "active": True}
+        response = requests.get(f"{API_BASE}/events", params=params, timeout=30)
 
-# ────────────────────────── DATA PROCESSING ──────────────────────────
-def process_events(params=None):
-    """Process events data and update global state"""
-    global events_data, events_meta, last_prices, recent_moves, last_data_update, scanner_status
-
-    params = params or {"closed": False, "archived": False, "active": True}
-
-    try:
-        scanner_status = "Fetching events"
-        raw_events = fetch_all_events(params)
-        logger.info(f"Fetched {len(raw_events)} raw events")
-
-        if not raw_events:
-            logger.warning("No events received from API")
-            scanner_status = "No events found"
+        if not response.ok:
+            logger.error(f"API request failed: {response.status_code} {response.reason}")
+            last_fetch_status = f"API error: {response.status_code} {response.reason}"
             return
 
+        events_list = response.json()
+        logger.info(f"Fetched {len(events_list)} events")
+        last_fetch_status = f"Fetched {len(events_list)} events successfully"
+
+        # If no events, don't process further
+        if not events_list:
+            logger.warning("No events returned from API")
+            return
+
+        # Process events
+        processed_events = {}
         now = time.time()
-        updated = {}
-        new_moves = []
 
-        scanner_status = "Processing events"
-        for ev in raw_events:
-            eid = ev["id"]
+        for event in events_list:
+            event_id = event.get("id")
+            if not event_id:
+                continue
 
-            # Get or create metadata
-            with lock:
-                meta = events_meta.setdefault(
-                    eid,
-                    {"id": eid, "title": ev["title"], "link": make_event_url(ev)}
-                )
-                meta["title"] = ev["title"]  # Update title in case it changed
+            # Create simplified event data
+            title = event.get("title", "Untitled")
+            markets = []
 
-                # Process markets for this event
-                markets = []
-                has_active_markets = False
+            # Process markets if present
+            for market in event.get("markets", []):
+                market_id = market.get("id")
+                question = market.get("question", "Unknown")
 
-                for m in ev.get("markets", []):
-                    # Parse prices
-                    prices = parse_prices(m.get("outcomePrices"))
-                    if not prices:
-                        continue
+                # Process prices
+                prices = market.get("outcomePrices")
+                if not prices or len(prices) < 2:
+                    continue
 
-                    has_active_markets = True
-                    y, n = prices
+                try:
+                    yes_price = float(prices[0]) * 100  # Convert to percentage
+                    no_price = float(prices[1]) * 100
 
-                    # Calculate price changes
-                    py, pn = last_prices.get(m["id"], (y, n))
-                    dy, dn = (y - py) * 100, (n - pn) * 100
+                    # Add market to list
+                    markets.append({
+                        "id": market_id,
+                        "question": question,
+                        "yes": yes_price,
+                        "no": no_price,
+                        "yd": 0,  # Placeholder for now
+                        "nd": 0,
+                        "ydir": "—",
+                        "ndir": "—"
+                    })
+                except (ValueError, TypeError, IndexError):
+                    continue
 
-                    # Create record for this market
-                    market_record = {
-                        "id": m["id"],
-                        "question": m["question"],
-                        "yes": y * 100,
-                        "no": n * 100,
-                        "yd": abs(dy),
-                        "nd": abs(dn),
-                        "ydir": "UP" if dy > 0 else ("DOWN" if dy < 0 else "—"),
-                        "ndir": "UP" if dn > 0 else ("DOWN" if dn < 0 else "—"),
-                        "max_move": max(abs(dy), abs(dn))
-                    }
-                    markets.append(market_record)
+            # Only include events with markets
+            if markets:
+                processed_events[event_id] = {
+                    "id": event_id,
+                    "title": title,
+                    "link": f"https://polymarket.com/event/{event_id}",
+                    "markets": markets
+                }
 
-                    # Record price movements
-                    if abs(dy) > 0.01 or abs(dn) > 0.01:  # Only record non-trivial changes
-                        move = {
-                            "time_ts": now,
-                            "event_id": eid,
-                            "event_title": ev["title"],
-                            "event_link": make_event_url(ev),
-                            "market_id": m["id"],
-                            "question": m["question"],
-                            "max_move": max(abs(dy), abs(dn)),
-                            **market_record
-                        }
-                        recent_moves.append(move)
-                        new_moves.append(move)
-
-                    # Update last prices
-                    last_prices[m["id"]] = (y, n)
-
-                # Only include events with active markets
-                if has_active_markets:
-                    updated[eid] = {**meta, "markets": markets}
-
+        # Update global state
         with lock:
-            # Update main data store - CRUCIAL for Render
-            for eid, event_data in updated.items():
-                events_data[eid] = event_data
+            events_data = processed_events
+            last_update = now
 
-            # Remove events that no longer have markets
-            to_remove = [eid for eid in list(events_data.keys()) if eid not in updated]
-            for eid in to_remove:
-                events_data.pop(eid, None)
-                events_meta.pop(eid, None)
+        logger.info(f"Updated {len(processed_events)} events")
+        last_fetch_status = f"Updated {len(processed_events)} events"
 
-            last_data_update = now
-
-        # Log results
-        logger.info(f"Processed {len(raw_events)} events, found {len(updated)} with markets")
-        logger.info(f"Total events in data store: {len(events_data)}")
-        scanner_status = f"Updated {len(updated)} events"
-
-        return new_moves
-
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request exception: {e}")
+        last_fetch_status = f"Request error: {str(e)[:100]}"
     except Exception as e:
-        logger.error(f"Error processing events: {e}", exc_info=True)
-        scanner_status = f"Error: {str(e)[:100]}"
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        last_fetch_status = f"Error: {str(e)[:100]}"
 
 
-# ────────────────────────── BACKGROUND SCANNER ─────────────────────
-def scan_loop():
-    """Background scanner that continuously updates the data"""
-    global scanner_status
+# ────────────────────────── BACKGROUND WORKER ──────────────────────────
+def background_worker():
+    """Background thread to fetch data periodically"""
+    logger.info("Starting background worker")
 
-    scanner_status = "Starting scanner"
-    logger.info("Starting background scanner")
+    # Initial fetch
+    fetch_data()
 
-    # Initial data load
-    try:
-        scanner_status = "Initial scan"
-        process_events()
-    except Exception as e:
-        logger.error(f"Error during initial scan: {e}", exc_info=True)
-        scanner_status = f"Initial scan error: {str(e)[:100]}"
-
-    # Continuous polling
+    # Continuous fetching
     while True:
         try:
-            # Wait for next scan
             time.sleep(SCAN_INTERVAL)
-
-            # Process new data
-            scanner_status = "Running scan"
-            new_moves = process_events()
-
-            # Handle sounds (only in local development)
-            if new_moves and hasattr(playsound, '__call__'):
-                top = max(new_moves, key=lambda m: max(m["yd"], m["nd"]))
-                mag = max(top["yd"], top["nd"])
-                try:
-                    if mag > 5:
-                        playsound("static/sound3.mp3")
-                    elif mag > 1:
-                        playsound("static/sound2.mp3")
-                    elif mag > 0.3:
-                        playsound("static/sound1.mp3")
-                except Exception as e:
-                    logger.warning(f"Failed to play sound: {e}")
-
+            fetch_data()
         except Exception as e:
-            logger.error(f"Error in scan loop: {e}", exc_info=True)
-            scanner_status = f"Scan error: {str(e)[:100]}"
-            time.sleep(5)  # Shorter wait on error
+            logger.error(f"Error in background worker: {e}")
+            time.sleep(5)  # Wait a bit on error
 
 
-# ────────────────────────── ROUTES ─────────────────────────────────
-@app.route('/static/<path:filename>')
-def static_file(filename):
-    return send_from_directory('static', filename)
-
-
+# ────────────────────────── ROUTES ──────────────────────────────
 @app.route('/debug')
 def debug():
     """Debug endpoint to check application state"""
-    with lock:
-        return jsonify({
-            'events_count': len(events_data),
-            'recent_moves_count': len(recent_moves),
-            'last_update': last_data_update,
-            'seconds_since_update': time.time() - last_data_update if last_data_update else None,
-            'scanner_status': scanner_status,
-            'events_sample': list(events_data.keys())[:5]
-        })
+    return jsonify({
+        'events_count': len(events_data),
+        'recent_moves_count': len(recent_moves),
+        'last_update': last_update,
+        'seconds_since_update': time.time() - last_update if last_update else None,
+        'fetch_status': last_fetch_status,
+        'event_ids': list(events_data.keys())[:10]
+    })
 
 
-@app.route('/reset')
-def reset():
-    """Force a data reset and immediate scan"""
-    global events_data, events_meta, last_prices, recent_moves, scanner_status
-
-    with lock:
-        events_data.clear()
-        events_meta.clear()
-        last_prices.clear()
-        recent_moves.clear()
-
-    # Force an immediate scan in a new thread
-    threading.Thread(target=process_events, daemon=True).start()
-
-    return jsonify({'status': 'reset_initiated'})
+@app.route('/fetch')
+def manual_fetch():
+    """Manually trigger a fetch operation"""
+    threading.Thread(target=fetch_data, daemon=True).start()
+    return jsonify({'status': 'fetch_initiated'})
 
 
 @app.route('/')
 def index():
     """Main page showing all events"""
-    global events_data
-
-    now = time.time()
-    events_snapshot = []
-
+    # Get snapshot of current data
+    current_events = []
     with lock:
-        # Create a deep copy of events to avoid thread issues
-        for eid, event in events_data.items():
-            # Create a new dict with a deep copy of markets
-            event_copy = {
-                'id': event.get('id', ''),
-                'title': event.get('title', 'Untitled Event'),
-                'link': event.get('link', '#'),
-                'markets': list(event.get('markets', []))
-            }
-            events_snapshot.append(event_copy)
+        for event in events_data.values():
+            current_events.append(event)
 
-        # Get recent moves for sound effects
-        new_moves = [mv for mv in recent_moves if now - mv["time_ts"] < SCAN_INTERVAL]
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Polymarket Scanner</title>
+        <meta http-equiv="refresh" content="{{ refresh }}">
+        <style>{{ style }}</style>
+    </head>
+    <body>
+        <h1>Polymarket Scanner</h1>
 
-    # Sort events
-    if request.args.get("sort") == "move":
-        # Sort by move magnitude
-        # First, identify events with recent moves
-        latest_batch_time = now - SCAN_INTERVAL
-        event_max_moves = {}
+        <div class="status">
+            <p>Status: {{ status }}</p>
+            <p>Events: {{ events|length }} | Last update: {{ time_since }} seconds ago</p>
+            <p>
+                <a href="/debug" target="_blank">View Debug</a> | 
+                <a href="/fetch">Force Update</a> | 
+                <a href="/">Refresh</a>
+            </p>
+        </div>
 
-        for mv in recent_moves:
-            if mv["time_ts"] >= latest_batch_time:
-                eid = mv["event_id"]
-                event_max_moves[eid] = max(event_max_moves.get(eid, 0), mv.get("max_move", 0))
+        {% if events %}
+            {% for event in events %}
+                <h2>{{ event.title }}</h2>
+                <a href="{{ event.link }}" target="_blank">View on Polymarket</a>
 
-        # Sort events: those with recent moves first, then by move size
-        events_with_moves = [e for e in events_snapshot if e["id"] in event_max_moves]
-        events_without_moves = [e for e in events_snapshot if e["id"] not in event_max_moves]
-
-        events_with_moves.sort(key=lambda e: event_max_moves.get(e["id"], 0), reverse=True)
-        events_snapshot = events_with_moves + events_without_moves
-    else:
-        # Default sort: by market update time, then by size
-        last_move_times = {}
-        max_move_at_time = {}
-
-        for mv in recent_moves:
-            eid = mv["event_id"]
-            move_time = mv["time_ts"]
-            move_size = mv.get("max_move", 0)
-
-            if eid not in last_move_times or move_time > last_move_times[eid]:
-                last_move_times[eid] = move_time
-                max_move_at_time[eid] = move_size
-            elif move_time == last_move_times[eid]:
-                max_move_at_time[eid] = max(max_move_at_time.get(eid, 0), move_size)
-
-        events_snapshot.sort(
-            key=lambda e: (last_move_times.get(e["id"], 0), max_move_at_time.get(e["id"], 0)),
-            reverse=True
-        )
-
-    # Render the template with our snapshot data
-    return render_template_string(HOME_TEMPLATE,
-                                  events=events_snapshot,
-                                  new_moves=new_moves,
-                                  events_count=len(events_snapshot),
-                                  refresh_interval=REFRESH_INTERVAL,
-                                  last_update=last_data_update,
-                                  scanner_status=scanner_status
-                                  )
-
-
-@app.route("/recent")
-def recent():
-    """Page showing recent price movements"""
-    now = time.time()
-    cutoff = now - (HISTORY_MINUTES * 60)
-    sort_by_move = request.args.get("sort") == "move"
-
-    moves = []
-    with lock:
-        # Get recent moves
-        moves = [m.copy() for m in recent_moves if m["time_ts"] >= cutoff]
-
-    # Sort moves
-    if sort_by_move:
-        moves.sort(key=lambda m: m.get("max_move", 0), reverse=True)
-    else:
-        moves.sort(key=lambda m: m["time_ts"], reverse=True)
-
-    return render_template_string(RECENT_TEMPLATE,
-                                  moves=moves,
-                                  refresh_interval=REFRESH_INTERVAL,
-                                  caller_time=now,
-                                  history_minutes=HISTORY_MINUTES,
-                                  sort_by_move=sort_by_move,
-                                  moves_count=len(moves),
-                                  last_update=last_data_update,
-                                  scanner_status=scanner_status
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Market</th>
+                            <th>YES</th>
+                            <th>NO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for market in event.markets %}
+                            <tr>
+                                <td>{{ market.question }}</td>
+                                <td class="yes">{{ "%.2f%%"|format(market.yes) }}</td>
+                                <td class="no">{{ "%.2f%%"|format(market.no) }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 20px; background: #333; margin-top: 20px; text-align: center;">
+                <h3>No events available</h3>
+                <p>{{ status }}</p>
+                <p>Try clicking "Force Update" above.</p>
+            </div>
+        {% endif %}
+    </body>
+    </html>
+    """,
+                                  events=current_events,
+                                  style=BASE_STYLE,
+                                  refresh=REFRESH_INTERVAL,
+                                  status=last_fetch_status,
+                                  time_since=int(time.time() - last_update) if last_update else "never"
                                   )
 
 
@@ -651,19 +493,18 @@ RECENT_TEMPLATE = """
 """
 
 
-# ────────────────────────── INITIALIZATION ────────────────────────────
-
+# ────────────────────────── APP INITIALIZATION ──────────────────────────
 def init_app():
-    """Initialize the application - called once at startup"""
-    # Start background scanner thread
-    threading.Thread(target=scan_loop, daemon=True).start()
+    """Initialize the application and start background worker"""
+    # Start background worker in a daemon thread
+    worker_thread = threading.Thread(target=background_worker, daemon=True)
+    worker_thread.start()
     return app
 
-
-# For compatibility with different deployment methods
-app = init_app()
+# For compatibility with different WSGI servers
+application = init_app()
 
 # For local development
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    application.run(host="0.0.0.0", port=port, debug=False)
