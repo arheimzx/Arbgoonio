@@ -228,6 +228,7 @@ def play_sound_async(path):
 
 
 # ────────────────────────── BACKGROUND SCANNER ─────────────────────
+# ────────────────────────── BACKGROUND SCANNER ─────────────────────
 def scan_loop():
     global events_meta, events_data, last_prices, recent_moves
 
@@ -237,7 +238,7 @@ def scan_loop():
 
     params = {"closed": False, "archived": False, "active": True}
 
-    # Try to load existing data from files
+    # Load existing data from files
     try:
         file_events = load_events_from_file()
         if file_events:
@@ -282,6 +283,7 @@ def scan_loop():
         cutoff = now - (HISTORY_MINUTES * 60)  # Keep N-minute history
         updated = {}
         new_moves = []
+        sound_trigger = None  # Will store sound info for browser playback
 
         try:
             status["status"] = "Scanning for updates"
@@ -351,21 +353,26 @@ def scan_loop():
                 # Save recent moves to file
                 save_moves_to_file(recent_moves)
 
-            # Update status
-            status["status"] = f"Updated {len(events_data)} events with markets"
-            status["last_update"] = now
-            save_status(status)
-
-            # single sound per scan
+            # Determine if we should trigger a sound in the browser
+            # instead of trying to play it on the server
             if new_moves:
                 top = max(new_moves, key=lambda m: max(m["yd"], m["nd"]))
                 mag = max(top["yd"], top["nd"])
                 if mag > 5:
-                    play_sound_async("static/sound3.mp3")
+                    sound_trigger = {"level": "high", "magnitude": mag}
                 elif mag > 1:
-                    play_sound_async("static/sound2.mp3")
+                    sound_trigger = {"level": "medium", "magnitude": mag}
                 elif mag > 0.3:
-                    play_sound_async("static/sound1.mp3")
+                    sound_trigger = {"level": "low", "magnitude": mag}
+
+            # Update status with sound trigger info
+            status["status"] = f"Updated {len(events_data)} events with markets"
+            status["last_update"] = now
+            if sound_trigger:
+                status["sound_trigger"] = sound_trigger
+            else:
+                status.pop("sound_trigger", None)  # Remove if exists
+            save_status(status)
 
             logger.info(f"Scanned {len(events_data)} events, found {len(new_moves)} moves")
 
@@ -449,6 +456,24 @@ HOME_TEMPLATE = """
         const statusData = await statusRes.json();
         document.getElementById('status').textContent = statusData.status;
         document.getElementById('last-update').textContent = Math.floor((Date.now()/1000) - statusData.last_update);
+
+        // Check for sound trigger and play sound if needed
+        if (statusData.sound_trigger) {
+          const level = statusData.sound_trigger.level;
+          console.log("Sound trigger:", level);
+
+          try {
+            if (level === "high") {
+              new Audio('/static/sound3.mp3').play().catch(e => console.log("Sound error:", e));
+            } else if (level === "medium") {
+              new Audio('/static/sound2.mp3').play().catch(e => console.log("Sound error:", e));
+            } else if (level === "low") {
+              new Audio('/static/sound1.mp3').play().catch(e => console.log("Sound error:", e));
+            }
+          } catch (soundError) {
+            console.log("Sound playback error:", soundError);
+          }
+        }
 
         // Fetch events
         const eventsRes = await fetch('/data/events');
@@ -613,6 +638,24 @@ RECENT_TEMPLATE = """
         const statusData = await statusRes.json();
         document.getElementById('status').textContent = statusData.status;
         document.getElementById('last-update').textContent = Math.floor((Date.now()/1000) - statusData.last_update);
+
+        // Check for sound trigger and play sound if needed
+        if (statusData.sound_trigger) {
+          const level = statusData.sound_trigger.level;
+          console.log("Sound trigger:", level);
+
+          try {
+            if (level === "high") {
+              new Audio('/static/sound3.mp3').play().catch(e => console.log("Sound error:", e));
+            } else if (level === "medium") {
+              new Audio('/static/sound2.mp3').play().catch(e => console.log("Sound error:", e));
+            } else if (level === "low") {
+              new Audio('/static/sound1.mp3').play().catch(e => console.log("Sound error:", e));
+            }
+          } catch (soundError) {
+            console.log("Sound playback error:", soundError);
+          }
+        }
 
         // Fetch recent moves
         const movesRes = await fetch('/data/moves');
