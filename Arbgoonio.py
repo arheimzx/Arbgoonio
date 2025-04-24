@@ -207,7 +207,7 @@ def scan_loop():
                         last_prices[m["id"]] = (y, n)
 
                     updated[eid] = {**meta, "markets": mkts}
-                    logger.info(f"📦 Sending {len(evs)} events to frontend")
+
                 # Automatically clean up events with no markets (reduces memory usage)
                 if not mkts and eid in events_data:
                     del events_data[eid]
