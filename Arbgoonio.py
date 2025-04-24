@@ -820,6 +820,8 @@ def service_worker():
 
 @app.route("/")
 def index():
+    user_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    logger.info(f"User access from IP: {user_ip}")
     """Main page showing all events"""
     return render_template_string(
         HOME_TEMPLATE,
