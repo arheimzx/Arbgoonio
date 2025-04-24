@@ -465,7 +465,7 @@ def service_worker():
 def index():
     now = time.time()
     with lock:
-        logger.info(f"📜 Sending {len(moves)} recent moves to frontend")
+        logger.info(f"📦 Sending {len(evs)} events to frontend")
         # Get all events and prepare for sorting
         evs = list(events_data.values())
 
