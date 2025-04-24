@@ -135,6 +135,7 @@ def play_sound_async(path):
 # ────────────────────────── BACKGROUND SCANNER ─────────────────────
 def scan_loop():
     global events_meta, events_data, last_prices, recent_moves
+
     logger.info("🔁 Scan loop started")
 
     params = {"closed": False, "archived": False, "active": True}
@@ -206,7 +207,7 @@ def scan_loop():
                         last_prices[m["id"]] = (y, n)
 
                     updated[eid] = {**meta, "markets": mkts}
-
+                    logger.info(f"📊 Event {eid} added with {len(mkts)} markets")
                 # Automatically clean up events with no markets (reduces memory usage)
                 if not mkts and eid in events_data:
                     del events_data[eid]
@@ -230,7 +231,7 @@ def scan_loop():
 
         except Exception as e:
             logger.error(f"Scan error: {e}")
-
+    logger.info(f"✅ Total updated events: {len(updated)}")
 
 def start_scanner():
     threading.Thread(target=scan_loop, daemon=True).start()
