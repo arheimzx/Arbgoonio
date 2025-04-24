@@ -135,6 +135,7 @@ def play_sound_async(path):
 # ────────────────────────── BACKGROUND SCANNER ─────────────────────
 def scan_loop():
     global events_meta, events_data, last_prices, recent_moves
+    logger.info("🔁 Scan loop started")
 
     params = {"closed": False, "archived": False, "active": True}
 
