@@ -77,13 +77,16 @@ def fetch_all_events(params=None, page_size=100, max_retries=3):
 
         for attempt in range(max_retries):
             try:
+                logger.info(f"Fetching events from API (offset: {offset}, limit: {page_size})")
                 r = requests.get(f"{API_BASE}/events", params=q, timeout=30)
                 r.raise_for_status()
                 batch = r.json()
 
                 if not batch:
+                    logger.info("API returned empty batch, done fetching")
                     break
 
+                logger.info(f"API returned {len(batch)} events in this batch")
                 out.extend(batch)
 
                 if len(batch) < page_size:
@@ -102,6 +105,7 @@ def fetch_all_events(params=None, page_size=100, max_retries=3):
         if not batch or len(batch) < page_size:
             break
 
+    logger.info(f"Total events fetched from API: {len(out)}")
     return out
 
 
@@ -162,7 +166,11 @@ def scan_loop():
         new_moves = []
 
         try:
-            for ev in fetch_all_events(params):
+            # Debug the API response
+            fetched_events = fetch_all_events(params)
+            logger.info(f"API returned {len(fetched_events)} events")
+
+            for ev in fetched_events:
                 eid = ev["id"]
                 with lock:
                     meta = events_meta.setdefault(
@@ -206,15 +214,24 @@ def scan_loop():
 
                         last_prices[m["id"]] = (y, n)
 
-                    updated[eid] = {**meta, "markets": mkts}
+                    if mkts:  # Only add events that actually have markets
+                        updated[eid] = {**meta, "markets": mkts}
 
-                # Automatically clean up events with no markets (reduces memory usage)
+                # Clean up events with no markets - do this outside the with lock block
                 if not mkts and eid in events_data:
-                    del events_data[eid]
-                    del events_meta[eid]
+                    with lock:
+                        if eid in events_data:
+                            del events_data[eid]
+                        if eid in events_meta:
+                            del events_meta[eid]
 
             with lock:
-                events_data = updated
+                # Only update events_data if we actually have data
+                if updated:
+                    events_data.update(updated)
+                    logger.info(f"✅ Updated events data with {len(updated)} events")
+                else:
+                    logger.warning("⚠️ No events data was updated in this scan")
 
             # single sound per scan
             if new_moves:
@@ -227,11 +244,10 @@ def scan_loop():
                 elif mag > 0.3:
                     play_sound_async("static/sound1.mp3")
 
-            logger.info(f"Scanned {len(events_data)} events, found {len(new_moves)} moves")
+            logger.info(f"Scanned {len(fetched_events)} events, found {len(new_moves)} moves")
 
         except Exception as e:
-            logger.error(f"Scan error: {e}")
-    logger.info(f"✅ Total updated events: {len(updated)}")
+            logger.error(f"Scan error: {e}", exc_info=True)  # Add exc_info to get full traceback
 
 def start_scanner():
     threading.Thread(target=scan_loop, daemon=True).start()
