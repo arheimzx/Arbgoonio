@@ -461,13 +461,12 @@ def manifest():
 def service_worker():
     return app.send_static_file('service-worker.js')
 
-@app.route("/")
-def index():
-    now = time.time()
-    with lock:
-        logger.info(f"📦 Sending {len(evs)} events to frontend")
-        # Get all events and prepare for sorting
-        evs = list(events_data.values())
+ @app.route("/")
+ def index():
+     now = time.time()
+     with lock:
+-        logger.info(f"📦 Sending {len(evs)} events to frontend")
+-        evs = list(events_data.values())
 
         if request.args.get("sort") == "move":
             # Implement the logic for sorting by move magnitude as previously explained
