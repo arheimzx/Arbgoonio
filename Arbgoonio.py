@@ -463,6 +463,7 @@ def service_worker():
 def index():
     now = time.time()
     with lock:
+        logger.info(f"📜 Sending {len(moves)} recent moves to frontend")
         # Get all events and prepare for sorting
         evs = list(events_data.values())
 
@@ -541,6 +542,8 @@ def recent():
     sort_by_move = request.args.get("sort") == "move"
 
     with lock:
+        evs = list(events_data.values())
+        logger.info(f"📦 Sending {len(evs)} events to frontend")
         # Filter recent moves efficiently
         moves = [mv for mv in recent_moves if mv["time_ts"] >= cutoff]
 
