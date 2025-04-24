@@ -562,7 +562,7 @@ def recent():
 
 
 # ────────────────────────── STARTUP ────────────────────────────────
-if __name__ == "__main__":
+start_scanner()  # This must be outside the __main__ check for Render
 
-    start_scanner()
-    app.run()
+if __name__ == "__main__":
+    app.run()  # This only runs for local dev, not on Render
