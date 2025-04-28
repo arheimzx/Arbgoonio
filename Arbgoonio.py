@@ -457,21 +457,27 @@ HOME_TEMPLATE = """
         document.getElementById('status').textContent = statusData.status;
         document.getElementById('last-update').textContent = Math.floor((Date.now()/1000) - statusData.last_update);
 
-        // Check for sound trigger and play sound if needed
+        // Check for sound trigger and play overlapping sounds if needed
         if (statusData.sound_trigger) {
-          const level = statusData.sound_trigger.level;
-          console.log("Sound trigger:", level);
+          const magnitude = statusData.sound_trigger.magnitude;
+          console.log("Sound trigger with magnitude:", magnitude);
 
-          try {
-            if (level === "high") {
-              new Audio('/static/sound3.mp3').play().catch(e => console.log("Sound error:", e));
-            } else if (level === "medium") {
-              new Audio('/static/sound2.mp3').play().catch(e => console.log("Sound error:", e));
-            } else if (level === "low") {
-              new Audio('/static/sound1.mp3').play().catch(e => console.log("Sound error:", e));
-            }
-          } catch (soundError) {
-            console.log("Sound playback error:", soundError);
+          // Function to play sound with delay
+          const playWithDelay = (soundFile, delay) => {
+            setTimeout(() => {
+              new Audio(soundFile).play().catch(e => console.log("Sound error:", e));
+            }, delay);
+          };
+
+          // Play multiple sounds based on thresholds with overlapping
+          if (magnitude > 5) {
+            playWithDelay('/static/sound3.mp3', 0); // High magnitude sound
+          }
+          if (magnitude > 1) {
+            playWithDelay('/static/sound2.mp3', 250); // Medium magnitude sound with 0.25s delay
+          }
+          if (magnitude > 0.3) {
+            playWithDelay('/static/sound1.mp3', 500); // Low magnitude sound with 0.5s delay
           }
         }
 
@@ -639,21 +645,27 @@ RECENT_TEMPLATE = """
         document.getElementById('status').textContent = statusData.status;
         document.getElementById('last-update').textContent = Math.floor((Date.now()/1000) - statusData.last_update);
 
-        // Check for sound trigger and play sound if needed
+        // Check for sound trigger and play overlapping sounds if needed
         if (statusData.sound_trigger) {
-          const level = statusData.sound_trigger.level;
-          console.log("Sound trigger:", level);
+          const magnitude = statusData.sound_trigger.magnitude;
+          console.log("Sound trigger with magnitude:", magnitude);
 
-          try {
-            if (level === "high") {
-              new Audio('/static/sound3.mp3').play().catch(e => console.log("Sound error:", e));
-            } else if (level === "medium") {
-              new Audio('/static/sound2.mp3').play().catch(e => console.log("Sound error:", e));
-            } else if (level === "low") {
-              new Audio('/static/sound1.mp3').play().catch(e => console.log("Sound error:", e));
-            }
-          } catch (soundError) {
-            console.log("Sound playback error:", soundError);
+          // Function to play sound with delay
+          const playWithDelay = (soundFile, delay) => {
+            setTimeout(() => {
+              new Audio(soundFile).play().catch(e => console.log("Sound error:", e));
+            }, delay);
+          };
+
+          // Play multiple sounds based on thresholds with overlapping
+          if (magnitude > 5) {
+            playWithDelay('/static/sound3.mp3', 0); // High magnitude sound
+          }
+          if (magnitude > 1) {
+            playWithDelay('/static/sound2.mp3', 250); // Medium magnitude sound with 0.25s delay
+          }
+          if (magnitude > 0.3) {
+            playWithDelay('/static/sound1.mp3', 500); // Low magnitude sound with 0.5s delay
           }
         }
 
