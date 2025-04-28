@@ -471,13 +471,13 @@ HOME_TEMPLATE = """
 
           // Play multiple sounds based on thresholds with overlapping
           if (magnitude > 5) {
-            playWithDelay('/static/sound3.mp3', 0); // High magnitude sound
+            playWithDelay('/static/sound3.mp3', 1000); // High magnitude sound
           }
           if (magnitude > 1) {
-            playWithDelay('/static/sound2.mp3', 250); // Medium magnitude sound with 0.25s delay
+            playWithDelay('/static/sound2.mp3', 500); // Medium magnitude sound with 0.25s delay
           }
           if (magnitude > 0.3) {
-            playWithDelay('/static/sound1.mp3', 500); // Low magnitude sound with 0.5s delay
+            playWithDelay('/static/sound1.mp3', 1); // Low magnitude sound with 0.5s delay
           }
         }
 
