@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Polymarket Terminal - Market Moves Tracker</title>
+  <style>
+    body{
+      background:#111;
+      color:#ddd;
+      font-family:monospace;
+      padding:20px;
+      margin:0;
+      font-size:14px;
+    }
+
+    .terminal-container {
+      background:#000;
+      border:1px solid #333;
+      border-radius:5px;
+      padding:10px;
+      height:85vh;
+      overflow-y:auto;
+      position:relative;
+    }
+
+    .terminal-header {
+      position:sticky;
+      top:0;
+      background:#000;
+      border-bottom:1px solid #333;
+      padding-bottom:10px;
+      margin-bottom:10px;
+      z-index:100;
+    }
+
+    .terminal-title {
+      color:#0f0;
+      font-weight:bold;
+      margin-bottom:5px;
+    }
+
+    .status-bar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      color:#0f0;
+      font-size:12px;
+      margin-bottom:10px;
+    }
+
+    .terminal-row {
+      display:flex;
+      padding:8px 5px;
+      border-bottom:1px solid #222;
+      transition:background 0.2s;
+      align-items:center;
+    }
+
+    .terminal-row:hover {
+      background:#1a1a1a;
+    }
+
+    .terminal-row > div {
+      padding-right:15px;
+    }
+
+    .event-time {
+      width:60px;
+      color:#888;
+    }
+
+    .event-button {
+      background:#222;
+      color:#0f0;
+      border:1px solid #0f0;
+      border-radius:3px;
+      padding:3px 8px;
+      cursor:pointer;
+      text-decoration:none;
+      font-family:monospace;
+      font-size:12px;
+      display:inline-block;
+    }
+
+    .event-button:hover {
+      background:#0f0;
+      color:#000;
+    }
+
+    .market {
+      flex-grow:1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .yes-price, .no-price {
+      width:70px;
+      text-align:right;
+    }
+
+    .yes-price {
+      color:#0f0;
+    }
+
+    .no-price {
+      color:#f55;
+    }
+
+    .yes-change, .no-change {
+      width:80px;
+      text-align:right;
+    }
+
+    .up {
+      color:#0f0;
+    }
+
+    .down {
+      color:#f55;
+    }
+
+    .volume {
+      width:80px;
+      text-align:right;
+      color:#0af;
+    }
+
+    .event-volume {
+      width:80px;
+      text-align:right;
+      color:#f0f;
+    }
+
+    .highlight-row {
+      animation: highlight-flash 2s;
+    }
+
+    .highlight-move-0-5 {
+      background: rgba(0, 100, 255, 0.35) !important;
+      border-left: 2px solid rgba(0, 160, 255, 0.8);
+    }
+
+    .highlight-move-1-0 {
+      background: rgba(255, 60, 60, 0.30) !important;
+      border-left: 2px solid rgba(255, 80, 80, 0.8);
+    }
+
+    .highlight-move-5-0 {
+      background: rgba(255, 30, 30, 0.40) !important;
+      border-left: 3px solid rgba(255, 50, 50, 0.9);
+    }
+
+    .highlight-move-10-0 {
+      background: rgba(255, 0, 0, 0.50) !important;
+      border-left: 4px solid rgba(255, 50, 0, 1);
+    }
+
+    .highlight-move-20-0 {
+      background: rgba(255, 0, 0, 0.60) !important;
+      border-left: 5px solid rgba(255, 80, 0, 1);
+    }
+
+    @keyframes highlight-flash {
+      0%, 100% { background: #1a1a1a; }
+      50% { background: #332200; }
+    }
+
+    .menu-container {
+      display:flex;
+      justify-content:space-between;
+      margin-bottom:15px;
+    }
+
+    .menu-button {
+      background: #222;
+      color: #0f0;
+      border: 1px solid #0f0;
+      border-radius: 3px;
+      padding: 3px 8px;
+      cursor: pointer;
+      margin-right: 10px;
+      font-family: monospace;
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    .mini-button {
+      background: #222;
+      color: #0f0;
+      border: 1px solid #0f0;
+      border-radius: 3px;
+      padding: 1px 5px;
+      cursor: pointer;
+      font-family: monospace;
+      text-decoration: none;
+      font-size: 11px;
+      margin-left: 2px;
+    }
+
+    .menu-button:hover {
+      background:#0f0;
+      color:#000;
+    }
+
+    .volume-control {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 15px;
+    }
+
+    .volume-label {
+      color: #888;
+      margin-right: 8px;
+    }
+
+    .volume-slider {
+      width: 80px;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #333;
+      outline: none;
+      border-radius: 4px;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #0f0;
+      cursor: pointer;
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #0f0;
+      cursor: pointer;
+      border: none;
+    }
+
+    .volume-value {
+      margin-left: 8px;
+      min-width: 36px;
+      text-align: right;
+      color: #0f0;
+    }
+
+    /* Hide scrollbar but allow scrolling */
+    .terminal-container::-webkit-scrollbar {
+      width: 0px;
+      background: transparent;
+    }
+
+    /* For Firefox */
+    .terminal-container {
+      scrollbar-width: none;
+    }
+
+    .loader {
+      color: #0f0;
+      font-weight: bold;
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    .market-meta {
+      font-size: 11px;
+      color: #666;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+    }
+
+    .move-indicator {
+      color: white;
+      font-weight: bold;
+      margin-left: 8px;
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 165, 0, 0.4);
+      border-radius: 4px;
+      padding: 1px 5px;
+      box-shadow: 0 0 8px rgba(255, 165, 0, 0.6);
+      border: 1px solid rgba(255, 200, 0, 0.8);
+    }
+
+    .lightning-emoji {
+      color: #ffff00;
+      text-shadow: 0 0 8px #ffcc00;
+      font-size: 16px;
+      margin-right: 3px;
+    }
+
+    /* Filter controls */
+    .filter-controls {
+      padding: 10px 5px;
+      margin-top: 0;
+      margin-bottom: 10px;
+      background: #000;
+      border-bottom: 1px solid #333;
+      position: sticky;
+      top: 160px;
+      z-index: 85;
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+    }
+
+    .filter-label {
+      margin-right: 10px;
+      color: #888;
+      width: 90px;
+      text-align: right;
+    }
+
+    .filter-input {
+      background: #000;
+      color: #0f0;
+      border: 1px solid #333;
+      padding: 3px 5px;
+      font-family: monospace;
+      width: 70px;
+      margin-right: 10px;
+    }
+
+    /* Column labels */
+    .column-labels {
+      display: flex;
+      padding: 5px 5px;
+      border-bottom: 1px solid #333;
+      color: #888;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      background: #000;
+    }
+
+    .column-labels > div {
+      padding-right: 15px;
+    }
+
+    .label-time { width: 60px; }
+    .label-link { width: 36px; }
+    .label-market { flex-grow: 1; }
+    .label-yes, .label-no { width: 70px; text-align: right; }
+    .label-yes-change, .label-no-change { width: 80px; text-align: right; }
+    .label-volume, .label-event-volume { width: 80px; text-align: right; }
+
+    .label-volume { color: #0af; }
+    .label-event-volume { color: #f0f; }
+
+    {{ base_style }}
+  </style>
+  <script>
+    // Global variables to track state
+    let lastUpdateTime = 0;
+    let pollingInterval;
+    let countdownInterval;
+    let allMoves = [];
+    let filteredMoves = [];
+    let minMoveFilter = 0.1; // Default minimum move filter (0.1%)
+
+    // Function to format numbers with K/M suffix
+    function formatNumberCompact(num) {
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+      } else if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+      } else {
+        return num.toFixed(2);
+      }
+    }
+
+    // Format timestamp to HH:MM:SS
+    function formatTime(timestamp) {
+      const date = new Date(timestamp * 1000);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const seconds = date.getSeconds().toString().padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    }
+
+    // Calculate how long ago in a compact format
+    function timeAgo(timestamp) {
+      const now = Date.now() / 1000;
+      const diff = now - timestamp;
+
+      if (diff < 60) {
+        return Math.round(diff) + 's';
+      } else if (diff < 3600) {
+        return Math.round(diff / 60) + 'm';
+      } else {
+        return Math.round(diff / 3600) + 'h';
+      }
+    }
+
+    // Function to load data from files
+    async function loadData() {
+      try {
+        // Fetch status
+        const statusRes = await fetch('/data/status');
+        const statusData = await statusRes.json();
+        document.getElementById('status').textContent = statusData.status;
+        document.getElementById('last-update').textContent = Math.floor((Date.now()/1000) - statusData.last_update);
+
+        // Only update if the server data is newer
+        if (statusData.last_update > lastUpdateTime) {
+          lastUpdateTime = statusData.last_update;
+
+          // Play sound if significant move detected
+          if (statusData.sound_trigger) {
+            const magnitude = statusData.sound_trigger.magnitude;
+
+            // Create new Audio object to avoid issues with multiple plays
+            let soundToPlay;
+
+            // Play only one sound based on the highest threshold reached
+            if (magnitude > 5) {
+              soundToPlay = new Audio('/static/sound3.mp3');
+            } else if (magnitude > 1) {
+              soundToPlay = new Audio('/static/sound2.mp3');
+            } else if (magnitude > 0.3) {
+              soundToPlay = new Audio('/static/sound1.mp3');
+            }
+
+            // Apply volume setting and play
+            if (soundToPlay) {
+              soundToPlay.volume = globalVolume;
+              soundToPlay.play().catch(e => console.log("Sound error:", e));
+            }
+          }
+
+          // Fetch recent moves
+          const movesRes = await fetch('/data/moves');
+          allMoves = await movesRes.json();
+
+          // Apply filters
+          applyFilters();
+
+          document.getElementById('moves-count').textContent = filteredMoves.length;
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        document.getElementById('status').textContent = `Error: ${error.message}`;
+      }
+    }
+
+    // Apply filters and render moves
+    function applyFilters() {
+      const now = Date.now() / 1000;
+      const cutoff = now - ({{ history_minutes }} * 60);
+
+      // Get current filter values
+      minMoveFilter = parseFloat(document.getElementById('min-move-filter').value) || 0.1;
+      const minMarketVolume = parseFloat(document.getElementById('min-volume-filter').value) || 0;
+      const minEventVolume = parseFloat(document.getElementById('min-event-volume-filter').value) || 0;
+
+      // Filter moves based on all criteria
+      let validMoves = allMoves.filter(m =>
+        m.time_ts >= cutoff &&
+        m.max_move >= minMoveFilter &&
+        m.volume >= minMarketVolume &&
+        m.event_volume >= minEventVolume
+      );
+
+      // Group moves by timestamp (to group batches)
+      const movesGroupedByTime = {};
+      validMoves.forEach(move => {
+        // Round to nearest second to group moves from same batch
+        // This handles slight time differences in the same batch
+        const roundedTime = Math.round(move.time_ts);
+        if (!movesGroupedByTime[roundedTime]) {
+          movesGroupedByTime[roundedTime] = [];
+        }
+        movesGroupedByTime[roundedTime].push(move);
+      });
+
+      // Sort timestamps descending (newest first)
+      const sortedTimes = Object.keys(movesGroupedByTime)
+        .map(Number)
+        .sort((a, b) => b - a);
+
+      // Create final sorted array
+      filteredMoves = [];
+      sortedTimes.forEach(timestamp => {
+        // Sort moves within each timestamp batch by max_move (largest first)
+        const sortedBatch = movesGroupedByTime[timestamp].sort((a, b) => {
+          // Primary sort: by max_move (descending)
+          const moveDiff = b.max_move - a.max_move;
+          if (Math.abs(moveDiff) > 0.001) {
+            return moveDiff;
+          }
+          // Secondary sort: by volume (descending) if moves are equal
+          return b.volume - a.volume;
+        });
+        // Add sorted batch to filtered moves
+        filteredMoves = filteredMoves.concat(sortedBatch);
+      });
+
+      renderMoves();
+    }
+
+    // Render the moves to the terminal
+    function renderMoves() {
+      const container = document.getElementById('terminal-content');
+
+      if (filteredMoves.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #666;">
+            <p>No moves detected matching current filters</p>
+            <p>Waiting for market activity...</p>
+            <p class="loader">_</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Keep track of which rows are new for highlighting animation
+      const existingRows = new Set(Array.from(container.children).map(el => el.dataset.id));
+
+      // Build HTML for all moves
+      let html = '';
+
+      // Process moves grouped by timestamp
+      const movesByTime = {};
+      filteredMoves.forEach(move => {
+        const timeKey = Math.round(move.time_ts);
+        if (!movesByTime[timeKey]) {
+          movesByTime[timeKey] = [];
+        }
+        movesByTime[timeKey].push(move);
+      });
+
+      // Sort timestamps (newest first)
+      const sortedTimes = Object.keys(movesByTime).sort((a, b) => b - a);
+
+      // For each timestamp, sort by magnitude (biggest first)
+      sortedTimes.forEach(timeKey => {
+        // Sort moves within this timestamp by magnitude (biggest first)
+        const movesForTime = movesByTime[timeKey].sort((a, b) => b.max_move - a.max_move);
+
+        // Generate HTML for each move
+        movesForTime.forEach(m => {
+          const rowId = `move-${m.market_id}-${m.time_ts}`;
+
+          // Format change indicators with arrows and emoji
+          const yesEmoji = m.ydir === 'UP' ? '🔼' : (m.ydir === 'DOWN' ? '🔽' : '');
+          const noEmoji = m.ndir === 'UP' ? '🔼' : (m.ndir === 'DOWN' ? '🔽' : '');
+
+          const yesChange = `${yesEmoji} ${m.yd.toFixed(2)}%`;
+          const noChange = `${noEmoji} ${m.nd.toFixed(2)}%`;
+
+          const isNewRow = !existingRows.has(rowId);
+          const highlightClass = isNewRow ? 'highlight-row' : '';
+
+          // Add color highlighting based on move magnitude
+          let magnitudeClass = '';
+          if (m.max_move >= 20.0) {
+            magnitudeClass = 'highlight-move-20-0';
+          } else if (m.max_move >= 10.0) {
+            magnitudeClass = 'highlight-move-10-0';
+          } else if (m.max_move >= 5.0) {
+            magnitudeClass = 'highlight-move-5-0';
+          } else if (m.max_move >= 1.0) {
+            magnitudeClass = 'highlight-move-1-0';
+          } else if (m.max_move >= 0.5) {
+            magnitudeClass = 'highlight-move-0-5';
+          }
+
+          // Generate emoji based on move magnitude - use actual text if emoji fails
+          let moveIndicator = '';
+
+          if (m.max_move >= 10.0) {
+            let boltSymbols = '';
+
+            // Add a lightning bolt for every 10% of movement (up to a reasonable limit)
+            const numBolts = Math.min(Math.floor(m.max_move / 10), 5); // Limit to 5 bolts max
+
+            // Use both emoji and text symbol as fallback
+            boltSymbols = '⚡'.repeat(Math.max(numBolts, 1));
+            const textBolts = '⚡'.repeat(Math.max(numBolts, 1));
+
+            // Add fallback text to ensure visibility
+            moveIndicator = `
+              <span class="move-indicator">
+                <span class="lightning-emoji">${boltSymbols || textBolts}</span>
+                <strong>${m.max_move.toFixed(1)}%</strong>
+                <small style="margin-left:3px;opacity:0.8;">(${numBolts}x)</small>
+              </span>
+            `;
+          } else if (m.max_move >= 0.5) {
+            // For smaller moves, just show the percentage without lightning bolts
+            moveIndicator = `
+              <span class="move-indicator" style="background: rgba(255, 255, 255, 0.2);">
+                <strong>${m.max_move.toFixed(1)}%</strong>
+              </span>
+            `;
+          }
+
+          // Determine if this is a yes/no or numeric market based on question content
+          let marketTypeEmoji = '';
+          if (m.question.toLowerCase().includes('will') ||
+              m.question.toLowerCase().includes('yes') ||
+              m.question.toLowerCase().includes('no')) {
+            marketTypeEmoji = '☑️ '; // Checkbox for yes/no markets
+          } else if (m.question.match(/\d+/)) {
+            marketTypeEmoji = '🔢 '; // Numbers for numeric markets
+          } else if (m.question.toLowerCase().includes('win') ||
+                     m.question.toLowerCase().includes('victory') ||
+                     m.question.toLowerCase().includes('defeat')) {
+            marketTypeEmoji = '🏆 '; // Trophy for competition markets
+          } else if (m.question.toLowerCase().includes('election') ||
+                     m.question.toLowerCase().includes('vote') ||
+                     m.question.toLowerCase().includes('president')) {
+            marketTypeEmoji = '🗳️ '; // Ballot box for election markets
+          }
+
+          html += `
+            <div class="terminal-row ${highlightClass} ${magnitudeClass}" data-id="${rowId}" data-magnitude="${m.max_move.toFixed(2)}">
+              <div class="event-time">${formatTime(m.time_ts)}</div>
+              <div>
+                <a href="${m.event_link}" target="_blank" class="event-button">GO</a>
+              </div>
+              <div class="market">
+                ${marketTypeEmoji}${m.question} ${m.max_move >= 10 ? '⚡' : ''}
+                <div class="market-meta">
+                  ${m.event_title.substring(0, 40)}${m.event_title.length > 40 ? '...' : ''}
+                  ${moveIndicator}
+                </div>
+              </div>
+              <div class="yes-price">${m.yes.toFixed(1)}%</div>
+              <div class="no-price">${m.no.toFixed(1)}%</div>
+              <div class="yes-change ${m.ydir.toLowerCase()}">${yesChange}</div>
+              <div class="no-change ${m.ndir.toLowerCase()}">${noChange}</div>
+              <div class="volume">${formatNumberCompact(m.volume || 0)}</div>
+              <div class="event-volume">${formatNumberCompact(m.event_volume || 0)}</div>
+            </div>
+          `;
+        });
+      });
+
+      // Set the entire content at once
+      container.innerHTML = html;
+    }
+
+    // Function to start auto-refresh polling
+    function startAutoRefresh(intervalSeconds) {
+      // Clear any existing intervals
+      if (pollingInterval) clearInterval(pollingInterval);
+      if (countdownInterval) clearInterval(countdownInterval);
+
+      // Set polling interval for data refresh
+      pollingInterval = setInterval(() => {
+        loadData();
+      }, intervalSeconds * 1000);
+
+      // Set countdown display
+      let countdown = intervalSeconds;
+      document.getElementById('timer').textContent = countdown;
+
+      countdownInterval = setInterval(() => {
+        countdown = countdown > 0 ? countdown - 1 : intervalSeconds;
+        document.getElementById('timer').textContent = countdown;
+
+        // Update last update counter
+        const lastUpdate = document.getElementById('last-update');
+        if (lastUpdate.textContent !== '--') {
+          lastUpdate.textContent = parseInt(lastUpdate.textContent) + 1;
+        }
+      }, 1000);
+    }
+
+    // Initialize data loading and auto-refresh when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load data immediately
+      loadData();
+
+      // Start auto-refresh with interval
+      startAutoRefresh({{ refresh_interval }});
+
+      // Set up filter input events
+      document.getElementById('min-move-filter').addEventListener('change', applyFilters);
+      document.getElementById('min-volume-filter').addEventListener('change', applyFilters);
+      document.getElementById('min-event-volume-filter').addEventListener('change', applyFilters);
+      document.getElementById('apply-filter').addEventListener('click', applyFilters);
+    });
+  </script>
+</head>
+<body>
+  <div class="menu-container">
+    <div>
+      <button id="enable-sound" class="menu-button">Enable Sounds</button>
+      <span class="volume-control">
+        <label for="volume-slider" class="volume-label">Volume:</label>
+        <input type="range" id="volume-slider" min="0" max="100" value="50" class="volume-slider">
+        <span id="volume-value" class="volume-value">50%</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="terminal-container">
+    <div class="terminal-header">
+      <div class="compact-header">
+        <span class="terminal-title">📊</span>
+        <span class="status-bar"><span id="status">Loading...</span>|<span id="moves-count">0</span>m|<span id="last-update">--</span>s|<span id="timer">--</span>s</span>
+        <div class="filter-controls">
+          <span class="filter-group">Min. Move%:<input type="number" id="min-move-filter" class="filter-input" value="0.1" step="0.1" min="0"></span>
+          <span class="filter-group">Min. Market Volume$:<input type="number" id="min-volume-filter" class="filter-input" value="5000" step="1000" min="0"></span>
+          <span class="filter-group">Min. Event Volume$:<input type="number" id="min-event-volume-filter" class="filter-input" value="0" step="1000" min="0"></span>
+          <button id="apply-filter" class="mini-button">Go</button>
+        </div>
+      </div>
+
+      <div class="column-labels">
+        <div class="label-time">Time</div>
+        <div class="label-link"></div>
+        <div class="label-market">Market Question</div>
+        <div class="label-yes">Yes</div>
+        <div class="label-no">No</div>
+        <div class="label-yes-change">Yes Δ</div>
+        <div class="label-no-change">No Δ</div>
+        <div class="label-volume">Mkt Vol</div>
+        <div class="label-event-volume">Evt Vol</div>
+      </div>
+    </div>
+
+    <div id="terminal-content">
+      <div style="text-align: center; padding: 20px; color: #666;">
+        <p>Loading terminal data...</p>
+        <p class="loader">_</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Sound handling */
+    const s0 = new Audio('/static/sound1.mp3'),
+          s1 = new Audio('/static/sound2.mp3'),
+          s5 = new Audio('/static/sound3.mp3');
+
+    // Audio objects array for easy access
+    const soundEffects = [s0, s1, s5];
+
+    // Global volume setting
+    let globalVolume = 0.5; // Default is 50%
+
+    // Enable sounds button
+    document.getElementById('enable-sound').onclick = () => {
+      soundEffects.forEach(sound => {
+        sound.volume = globalVolume;
+        sound.play().catch(() => {});
+        sound.pause();
+        sound.currentTime = 0;
+      });
+    };
+
+    // Volume slider
+    const volumeSlider = document.getElementById('volume-slider');
+    const volumeValue = document.getElementById('volume-value');
+
+    volumeSlider.addEventListener('input', function() {
+      // Update the displayed value
+      volumeValue.textContent = this.value + '%';
+
+      // Update the global volume (convert from 0-100 to 0-1)
+      globalVolume = this.value / 100;
+
+      // Apply to all sound effects
+      soundEffects.forEach(sound => {
+        sound.volume = globalVolume;
+      });
+    });
+  </script>
+</body>
+</html>
