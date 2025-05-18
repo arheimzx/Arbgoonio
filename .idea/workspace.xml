@@ -5,14 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="6b1ebf16-bcef-4458-a4c4-df3cc2a848c6" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Arbgoonio.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Arbgoonio.spec" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/events_data.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/events_data.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/recent_moves.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/recent_moves.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/status.json" beforeDir="false" afterPath="$PROJECT_DIR$/data/status.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -84,7 +78,8 @@
       <workItem from="1746961079188" duration="4470000" />
       <workItem from="1747301760735" duration="3506000" />
       <workItem from="1747394577220" duration="6035000" />
-      <workItem from="1747568271924" duration="10105000" />
+      <workItem from="1747568271924" duration="10821000" />
+      <workItem from="1747580381494" duration="349000" />
     </task>
     <servers />
   </component>
@@ -107,7 +102,7 @@
     <SUITE FILE_PATH="coverage/main_py_py$main.coverage" NAME="main Coverage Results" MODIFIED="1746960761597" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/main_py$config.coverage" NAME="config Coverage Results" MODIFIED="1747305490524" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Arbgoonio_py$API_Call.coverage" NAME="API Call Coverage Results" MODIFIED="1745949535658" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../APIcall" />
-    <SUITE FILE_PATH="coverage/main_py$main.coverage" NAME="main Coverage Results" MODIFIED="1747579256716" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/main_py$main.coverage" NAME="main Coverage Results" MODIFIED="1747579599253" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Arbgoonio$Arbgoonio.coverage" NAME="Arbgoonio Coverage Results" MODIFIED="1745503327901" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Arbgoonio_py$Arbgoonio.coverage" NAME="Arbgoonio Coverage Results" MODIFIED="1745952958481" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/terminal_html$main.coverage" NAME="main Coverage Results" MODIFIED="1746965340433" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
